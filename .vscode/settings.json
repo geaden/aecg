@@ -1,0 +1,26 @@
+{
+  // The number of spaces a tab is equal to. This setting is overridden
+  // based on the file contents when `editor.detectIndentation` is true.
+  "editor.tabSize": 4,
+  // Insert spaces when pressing Tab. This setting is overriden
+  // based on the file contents when `editor.detectIndentation` is true.
+  "editor.insertSpaces": true,
+  "[jsonc]": {
+    "editor.tabSize": 2
+  },
+  // When opening a file, `editor.tabSize` and `editor.insertSpaces`
+  // will be detected based on the file contents. Set to false to keep
+  // the values you've explicitly set, above.
+  "editor.detectIndentation": false,
+  "editor.rulers": [
+    80,
+    120
+  ],
+  "latex-workshop.docker.enabled": false,
+  "latex-workshop.docker.image.latex": "texlive/texlive",
+  "latex-workshop.latex.outDir": "%DIR%/build",
+  "latex-workshop.formatting.latex": "latexindent",
+  "latex-workshop.view.pdf.viewer": "tab",
+  "latex-workshop.view.pdf.zoom": "page-width",
+  "cSpell.language": "en,ru"
+}

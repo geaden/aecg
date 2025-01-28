@@ -1,0 +1,519 @@
+% This is samplepaper.tex, a sample chapter demonstrating the
+% LLNCS macro package for Springer Computer Science proceedings;
+% Version 2.21 of 2022/01/12
+%
+\documentclass[runningheads, final]{llncs}
+%
+\usepackage[T1]{fontenc}
+% T1 fonts will be used to generate the final print and online PDFs,
+% so please use T1 fonts in your manuscript whenever possible.
+% Other font encondings may result in incorrect characters.
+%
+\usepackage{graphicx}
+% Constrain images box
+\usepackage[Export]{adjustbox}
+% Used for displaying a sample figure. If possible, figure files should
+% be included in EPS format.
+%
+% If you use the hyperref package, please uncomment the following two lines
+% to display URLs in blue roman font according to Springer's eBook style:
+\usepackage[hidelinks]{hyperref}
+\renewcommand\UrlFont{\color{blue}\rmfamily}
+\urlstyle{rm}
+% Math
+% \usepackage{amsthm}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[makeroom]{cancel}
+% Algorithms
+\usepackage[ruled, linesnumbered]{algorithm2e}
+\usepackage{algpseudocode}
+% Fine tuning of references.
+\usepackage[english]{cleveref}
+\usepackage[dvipsnames, table]{xcolor}
+\usepackage{hyphenat}
+\usepackage{cite}
+%
+% Custom commands
+\newcommand*{\eq}[1]
+{
+  \begin{equation*}
+    #1
+  \end{equation*}
+}
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\vprod}[1]{\langle#1\rangle}
+\newcommand{\errgrad}{\hat{g}}
+\begin{document}
+%
+\title{Adaptive Frank-Wolfe Method With Relative-Error }
+%
+%\titlerunning{Abbreviated paper title}
+% If the paper title is too long for the running head, you can set
+% an abbreviated paper title here
+%
+\author{Fedor Stonyakin\inst{1}\orcidID{0000-1111-2222-3333} \and
+    Mohammad Alkousa\inst{2,3}\orcidID{1111-2222-3333-4444} \and
+    Gennady Denisov\inst{3}\orcidID{2222--3333-4444-5555}}
+%
+\authorrunning{F. Stonyakin, M. Alkousa et al.}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+%
+\institute{Moscow Institute of Physics and Technology
+    Moscow, Russia\\
+    \email{fedyor@mail.ru} \and
+    Innopolis University, Innopolis, Russia\\
+    \email{mohammad.math84@gmail.com} \and
+    Moscow Institute of Physics and Technology
+    Moscow, Russia\\
+    \email{denisov.ga@phystech.su}}
+%
+\maketitle              % typeset the header of the contribution
+%
+\begin{abstract}
+    \textbf{TBD} The abstract should briefly summarize the contents of the paper in
+    150--250 words.
+
+    \keywords{Frank-Wolfe method\and Adaptive Optimization method \and Erroneous Conditional Gradient.}
+\end{abstract}
+%
+%
+%
+\section{Introduction}
+\subsection{Problem formulation}
+
+In this paper we study adaptive variance of Frank-Wolfe
+\cite{frankwolfe:1956} algorithm with relative-error.
+
+Classical Frank-Wolfe method relies on gradient-oracle to find optimal solution
+for optimization problem, which is generally stated as follows:
+
+\begin{equation}\label{eq:optimization}
+    \min_{x \in \mathcal{C}} f(x)
+\end{equation}
+
+where:
+
+\begin{itemize}
+    \item $f$: $\mathbb{R}^n \rightarrow \mathbb{R}$ is continuous
+          differentiable
+    \item $\mathcal{C} \subseteq \mathbb{R}^n$ is a closed and convex set.
+\end{itemize}
+
+We research convergence rate of Adaptive Erroneous Conditional Gradient (AECG)
+as proposed by \cite{hallak:2024}.
+Unlike classical Frank-Wolf algorithm, its erroneous-conditional algorithm
+variance obtains gradient via \textit{Erroneous Oracle (EO)}.
+
+For computational results in this study we use practical problem called
+PageRank, a famous method to return fine search results, which was proposed by
+Google LLC founders: Sergey Brin and Larry Page \cite{brin:2012}.
+
+According to \cite{anikin:2022}, PageRank optimization problem can be stated
+as follows:
+
+\begin{equation}
+    f(x) = \frac{1}{2}\norm{Ax}_2^2 \to \min_{x\in\Delta^n_{1}}
+\end{equation}
+
+, where $A = I - P^\intercal$, $I$ -- identity matrix of size $n\times n$,
+$P$ -- stochastic transition matrix, $P \in \mathbb{R}^{n\times n}$
+
+\textbf{Literature}. While classical conditional gradient methods are well known
+and presented in many source \cite{dvurechensky:2015,dvurechensky:2017}, there
+are not so many sources on adaptive conditional gradient optimization methods
+with relative-errors. In \cite{hallak:2024} the question on conditional
+gradients with relative-errors arises. Conditional gradient method,
+like Frank-Wolfe \cite{frankwolfe:1956}, have a wide range of practical usage,
+especially in web search results page ranking problem (\cite{anikin:2022}).
+
+\textbf{Outline}. Computational experiments for the proposed problem are
+described in section \ref{sec:experiments}. We show results for two scenarios:
+one is with the step size, which depends on number of iterations, the other one
+-- the step size depends on Lipschitz-gradient constant.
+
+In section \ref{sec:discussion} we discuss results of computational experiments,
+show how theory and practice may differ.
+
+Section \ref{sec:conclusion} draws a conclusion of the given study and suggests
+future work in the field.
+
+\subsection{Mathematical preliminaries}
+
+The standard notation is used throughout the paper. $\norm{\cdot}$ stands for
+Euclidean norm. To distinguish between erroneous-gradient and gradient, the
+following notation is used, respectively:
+$\errgrad \in \mathcal{O}(x, \varepsilon)$ and $g = \nabla f(x)$.
+
+\textit{Linear minimization oracle (LMO)}, which is used in current study
+algorithm implementation, is box constrained. Box constraints are popular in
+mathematical modeling and widely used.
+
+\begin{definition}[box set]
+    A set $\mathcal{C} \subseteq \mathbb{R}^n$ is called a box iff
+    $\mathcal{C} = \{x \in \mathbb{R}^n: x_i \in [l_i, u_i]\}$, where $l, u \in
+        \mathbb{R}^n$ and $l_i \leqslant u_i, \forall i \in [n]$.
+\end{definition}
+
+In our research we use special kind of \textbf{EO} -- \textit{coordinate-wise
+    erroneous oracle}.
+
+\begin{definition}[Erroneous Oracles]
+    Let $\varepsilon \in [0, 1)$ be the relative-error, and let
+    $x \in \mathcal{C}$. The oracle $\mathcal{O}(\cdot; \varepsilon)$ is called
+    an \textit{erroneous oracle}(\textbf{EO}) iff $\forall x \in \mathcal{C}$ it
+    returns $\errgrad = \mathcal{O}(x; \varepsilon) \in \mathbb{R}^n$
+    satisfying:
+
+    \begin{equation}
+        \norm{\errgrad - \nabla f(x)} \leqslant \varepsilon \norm{\nabla f(x)}.
+    \end{equation}
+
+    Furthermore, if returned $\errgrad$ satisfies:
+
+    \begin{equation}
+        |\errgrad_i - \nabla f(x)_i| \leqslant \varepsilon |\nabla f(x)_i|,
+        \exists i \in [n].
+    \end{equation}
+
+    Then it is called a \textit{coordinate-wise erroneous oracle \textbf{CWEO}}.
+
+\end{definition}
+
+\section{Computational Experiments}\label{sec:experiments}
+
+We will undergo computational experiments for two scenarios: one is with
+the step size, which depends on interation number, the other one -- the step
+size depends on Lipschitz-gradient constant.
+
+\subsection{Iteration dependent step size}
+
+In this scenario step size is computed by the following formula:
+
+\begin{equation}
+    \eta_t = \min \Bigl\{1, \frac{2}{t + 2}\Bigr\}, \forall t \geqslant 0
+\end{equation}
+
+\subsubsection{Case $L_t \leqslant c \cdot L$}
+
+\begin{theorem}[Convergence rate when $L_t \leqslant c \cdot L$]\label{theorem:convergence_rate_Lt_ltq_cL}
+    Let $\eta_t$ is a step size at each iteration of the algorithm,
+    $L_t \leqslant c \cdot L$, where
+    $L$ is Lipschitz-gradient constant, then the following inequality holds:
+
+    \begin{equation}
+        f^{t} - f^{*} \leqslant \varepsilon M R + \frac{4 L R^2}{t+2}
+    \end{equation}
+\end{theorem}
+
+According to the theorem \ref{theorem:convergence_rate_Lt_ltq_cL} follows that
+the convergence rate of the algorithm is $O(\frac{1}{t})$.
+
+\begin{theorem}[Stopping criterion when $L_t \leqslant c \cdot L$]
+    \label{theorem:stopping_criterion}
+    Let $eta_t$ is a step size at each iteration of the algorithm,
+    $L_t \leqslant c \cdot L$, where
+    $L$ is Lipschitz-gradient constant, then the following inequality holds:
+
+    \begin{equation}
+        f^{t + 1} - f^{*} \leqslant \varepsilon M R +
+        \frac{4 \max\limits_{t} L_t R^2}{(t+2)^2}
+    \end{equation}
+\end{theorem}
+
+The implementation of the algorithm is listed below:
+
+\begin{algorithm}[H]\label{alg:aecg_Lt_lqt_cL}
+    \SetAlgoLined
+    \SetKwInOut{Input}{Input}
+    \caption{Adaptive Erroneous Conditional Gradient (AECG) with $L_t
+            \leqslant c \cdot L$}
+    \Input{$w^0 \in \mathcal{C}, \varepsilon \geqslant 0, c \geqslant 2, L$.}
+    set $f^* \leftarrow f(w^0)$\;
+    \For{any $t \geqslant 0$}{
+    retrieve $\errgrad^t \leftarrow \mathcal{O}(\nabla f(w^t), \varepsilon)$\;
+    compute $p^{t+1} \leftarrow LMO(\errgrad^t) - w^t$\;
+    compute $\eta_t \leftarrow \min(1, \frac{2}{t+2})$\;
+    set $w^{t+1} \leftarrow w^t + \eta_t p^{t+1}$\;
+    set $f^* \leftarrow \min(f^*, f^{t+1}))$\;
+    set $L_t \leftarrow c \cdot L$\;
+    set $M \leftarrow \norm{\nabla f^t}$\;
+    set $R \leftarrow \norm{p^{t+1}}$\;
+    \If{$f^{t+1} - f^* \leqslant \varepsilon M R + \frac{4 L_t R^2}{(t + 2)^2}$}{
+        break\;
+    }
+    set $t \leftarrow t + 1$\;
+    }
+\end{algorithm}
+
+where:
+
+\begin{itemize}
+    \item $\nabla f(w^t)$ is gradient of $f$ satisfying Lispschitz continuity
+          condition:
+
+          \begin{equation}
+              \norm{\nabla f(x) - \nabla f(y)}_{2} \leqslant L \norm{x - y}_{2},
+              \forall x, y \in \mathcal{C}
+          \end{equation}
+
+    \item $\varepsilon$ -- relative error
+    \item $\mathcal{O}(\cdot, \cdot)$ -- \textit{Erroneous Oracle (EO)}
+    \item $LMO$ -- linear minimization oracle
+    \item $p^{t+1}$ -- search direction
+    \item $\eta_{t}$ -- chosen step size
+    \item $L$ -- Lipschitz-gradient constant
+\end{itemize}
+
+The results of the computational experiment are shown in Figure \ref{fig:itereation_dependent_step_size}.
+
+\begin{figure}[h]\label{fig:convergence_rate}
+    \begin{center}
+        \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{images/case_Lt_lt_cl.png}
+        { \hspace*{\fill} \\}
+    \end{center}
+    \caption{Computational experiment results, when $L_t \leqslant c \cdot L$}
+\end{figure}
+
+\subsubsection{Case $L_t \geqslant L$}
+
+\begin{theorem}[Convergence rate when $L_t \geqslant L$]
+    Let $\eta_t$ is a step size at each iteration of the algorithm,
+    $L_t \geqslant L$, then the following inequality holds:
+
+    \begin{equation}
+        f^{t} - f^{*} \leqslant 2 \varepsilon M R + \frac{4 L R^2}{t+2}
+    \end{equation}
+\end{theorem}
+
+\begin{theorem}[Stopping criterion when $L_t \geqslant L$]\label{theorem:stopping_criterion}
+    Let $eta_t$ is a step size at each iteration of the algorithm,
+    $L_t \geqslant L$, where
+    $L$ is Lipschitz-gradient constant, then the following inequality holds:
+
+    \begin{equation}
+        f^{t + 1} - f^{*} \leqslant \frac{t}{t + 2} +
+        \frac{4 \varepsilon M R}{t + 2} +
+        \frac{4 \max\limits_{t} L_t R^2}{(t+2)^2}
+    \end{equation}
+\end{theorem}
+
+The algorithm listing is presented below:
+
+\begin{algorithm}[H]\label{alg:aecg}
+    \SetAlgoLined
+    \SetKwInOut{Input}{Input}
+    \caption{Adaptive Erroneous Conditional Gradient (AECG) with $L_t \geqslant L$}
+    \Input{$w^0 \in \mathcal{C}, \varepsilon \geqslant 0$.}
+    set $f^* \leftarrow f(w^0)$\;
+    set $L_t \leftarrow 0$\;
+    \For{any $t \geqslant 0$}{
+    retrieve $\errgrad^t \leftarrow \mathcal{O}(\nabla f(w^t), \varepsilon)$\;
+    compute $p^{t+1} \leftarrow LMO(\errgrad^t) - w^t$\;
+    compute $\eta_t \leftarrow \min(1, \frac{2}{t+2})$\;
+    set $w^{t+1} \leftarrow w^t + \eta_t p^{t+1}$\;
+    set $f^* \leftarrow \min(f^*, f^{t+1})$\;
+    set $M \leftarrow \norm{\nabla f^t}$\;
+    set $R \leftarrow \norm{p^{t+1}}$\;
+    compute $L_t \leftarrow \max(L_t, \frac{f^{t+1} - f^{t} - \eta_t \vprod{\errgrad, p^{t + 1}}
+        - \eta_t \varepsilon M R}{\eta_t^2 \cdot R^2})$\;
+    \If{$f^{t+1} - f^* \leqslant \varepsilon M R + \frac{4 L_t R^2}{(t + 2)^2}$}{
+        break\;
+    }
+    set $t \leftarrow t + 1$\;
+    }
+\end{algorithm}
+
+\begin{figure}[h]\label{fig:convergence_rate_case_Lt_qt_L}
+    \begin{center}
+        \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{images/case_Lt_gt_L.png}
+        { \hspace*{\fill} \\}
+    \end{center}
+    \caption{Computational experiment results, when $L_t \geqslant L$}
+\end{figure}
+
+\subsection{Lipschitz-constant gradient dependent step size}
+\textbf{TBD}
+
+\section{Discussion}\label{sec:discussion}
+\textbf{TBD}
+
+
+\section{Conclusion}\label{sec:conclusion}
+\textbf{TBD}
+
+%
+% ---- Bibliography ----
+%
+% BibTeX users should specify bibliography style 'splncs04'.
+% References will then be sorted and formatted in the correct style.
+%
+% \bibliographystyle{splncs04}
+% \bibliography{mybibliography}
+%
+\begin{thebibliography}{8}
+    \bibitem{hallak:2024}
+    Hallak, N., Kfir Y.: A Study of First-Order Methods with a Deterministic Relative-Error Gradient Oracle. Proceedings of the 41st International
+    Conference on Machine Learning \textbf{2}(235), 17313--17332 (2024)
+    \url{https://proceedings.mlr.press/v235/hallak24a.html}
+
+    \bibitem{brin:2012}
+    Brin, S., Page L.: Reprint of: The anatomy of a large-scale hypertextual
+    web search engine, Computer networks, \textbf{2}(56), 3825--3833 (2012)
+
+    \bibitem{anikin:2022}
+    Anikin A., Gasnikov A., Gornov A., Kamzolov D., Maximov Y., Nesterov Y.: Efficient numerical methods to solve sparse linear equations
+    with application to PageRank. Optimization Methods and Software
+    \textbf{2}(37), 907--935, (2022).
+    \url{https://doi.org/10.1080/10556788.2020.1858297}
+
+    \bibitem{bomze:2021}
+    Bomze, M. I., Rinaldi F., Zeffiro, D.: Frank-Wolfe and friends: a journey
+    into projection-free first-order optimization methods, (2021)
+    \url{https://arxiv.org/abs/2106.10261}
+
+    \bibitem{stonyakin:2022}
+    Stonyakin, F., Kuruzov, I., Polyak, B.: Stopping rules for gradient methods
+    for non-convex problems with additive noise in gradient, (2022)
+    \url{https://arxiv.org/abs/2205.07544}
+
+    \bibitem{dvurechensky:2015}
+    Dvurechensky, P., Gasnikov, A.: Stochastic Intermediate Gradient Method for
+    Convex Problems with Inexact Stochastic Oracle.
+    arXiv:1411.2876 (2015). \url{https://arxiv.org/abs/1411.2876}
+
+    \bibitem{dvurechensky:2017}
+    Dvurechensky, P.: Gradient Method With Inexact Oracle for Composite
+    Non-Convex Optimization.
+    arXiv:1703.09180 (2017). \url{https://arxiv.org/abs/1703.09180}
+
+    \bibitem{polyak:1987}
+    Polyak, B. T.: Introduction to optimization, (1987)
+
+    \bibitem{frankwolfe:1956}
+    Frank, M., Wolfe, P.: An algorithm for quadratic programming, Naval research
+    logistics quarterly, \textbf{3(1-2)}, 95--110, (1956)
+
+    \bibitem{recht:2019}
+    Recht, B., Wright, S.: Optimization for Modern Data Analysis, (2019)
+\end{thebibliography}
+
+\clearpage
+\section{Proofs for section \ref{sec:experiments}}
+
+For convenience we denote $f(w^t) := f^t$ -- the value of objective
+function at the given iteration $t$, $f(w^*) := f^*$ -- minimum value of
+objective function.
+
+Let $w^t, w^*, d \in \mathbb{R}, \forall t \geqslant 0$. From the convexity
+of $f$, the choice of $p^{t+1}$ and the definition of \textbf{EO}:
+
+\begin{equation}
+    -\min_{d \in C}\vprod{\errgrad_t, d - w^t} \geqslant
+    \vprod{\errgrad_t, w^t - w^*}
+\end{equation}
+
+\begin{equation}\label{eq:sum_of_gradient}
+    \vprod{\errgrad^t, w^t - w^*} = \vprod{\errgrad^t - g^t, w^t - w^*} +
+    \vprod{g^t, w^t - w^*}
+\end{equation}
+
+\begin{equation}\label{eq:grad_to_objective}
+    \vprod{g^t, w^t - w^*} \geqslant f^t - f^*
+\end{equation}
+
+\begin{equation}\label{eq:errgrad_to_epsilon_grad}
+    \norm{\errgrad^t - g^t} \leqslant \varepsilon \norm{g^t}
+\end{equation}
+
+According to Cauchy–Bunyakovsky–Schwarz inequality and plugging
+\ref{eq:grad_to_objective} and \ref{eq:errgrad_to_epsilon_grad} into
+\ref{eq:sum_of_gradient} we have:
+
+\begin{equation}
+    \begin{split}
+        \vprod{\errgrad^t - g^t, w^t - w^*} +
+        \vprod{g^t, w^t - w^*}\geqslant \\
+        \\\geqslant- \norm{\errgrad^t - g^t} \norm{w^t - w^*}
+        + f^t - f^* \geqslant           \\
+        \geqslant - \varepsilon \norm{g^t} R
+        + f^t - f^* \geqslant - \varepsilon M R + f^t - f^*
+    \end{split}
+\end{equation}
+
+Then:
+
+\begin{equation}
+    f^t - f^* \leqslant \varepsilon M R -
+    \min\limits_{d \in C}\vprod{\errgrad_t, d - w^t}
+\end{equation}
+
+\begin{equation}
+    f^t - f^* \leqslant \varepsilon M R - \vprod{\errgrad_t, p^{t + 1}}
+\end{equation}
+
+From \cite{hallak:2024}:
+
+\begin{equation}\label{eq:descent_property_extracted}
+    f^{t + 1} - f^* \leqslant f^t - f^* + \eta_t \vprod{\errgrad, p^{t + 1}}
+    + \frac{L_t \eta_t^2}{2}\norm{p^{t + 1}}^2
+\end{equation}
+
+\begin{equation}
+    \frac{L_t \eta_t^2}{2}\norm{p^{t + 1}}^2 = f^{t + 1} - f^t - \eta_t \vprod{\errgrad_t, p^{t + 1}}
+\end{equation}
+
+\begin{equation}
+    L_t = \frac{2 (f^{t + 1} - f^t - \eta_t \vprod{\errgrad_t, p^{t + 1}})}
+    {\eta_t^2 \norm{p^{t + 1}}^2}
+\end{equation}
+
+\begin{proof}[Theorem \ref{theorem:convergence_rate_Lt_ltq_cL}]
+    Plugging step size regime into \eqref{eq:descent_property_extracted} yields:
+
+    \begin{equation}\label{eq:basic_proof_of_convergence_rate_Lt_ltq_cL}
+        \begin{split}
+            f^{t + 1} - f^* \leqslant f^t - f^* + \frac{2}{t + 2}
+            \vprod{\errgrad_t, p^{t + 1}} +
+            \frac{4 \max\limits_t{L_t} R^2}{(t + 2)^2} \leqslant \\
+            \leqslant f^t - f^* + \frac{2}{t + 2} (f^* - f^t + \varepsilon M R) +
+            \frac{4 \max\limits_t{L_t} R^2}{(t + 2)^2}           \\
+            \leqslant \frac{t}{t + 2}(f^t - f^*) +
+            \frac{2 \varepsilon M R}{t + 2} +
+            \frac{4 \max\limits_t{L_t} R^2}{(t + 2)^2}
+        \end{split}
+    \end{equation}
+
+    By induction: for $t = 0$, $f^1 - f^* \leqslant \varepsilon M R +
+        \max\limits_t{L_t} R^2$, assume that:
+
+    \begin{equation}\label{eq:convergence_rate_Lt_ltq_cL_proof}
+        f^t - f^* \leqslant \varepsilon M R + \frac{\max\limits_t{L_t} R^2}{t + 2}
+        \square
+    \end{equation}
+
+    We will show that \ref{theorem:convergence_rate_Lt_ltq_cL} holds for $t + 1$.
+
+    Using the assumption \eqref{eq:convergence_rate_Lt_ltq_cL_proof} and relation
+    \eqref{eq:basic_proof_of_convergence_rate_Lt_ltq_cL}:
+
+    \begin{equation}
+        \begin{split}
+            f^{t + 1} - f^* \leqslant \frac{t}{t + 2}(f^t - f^*) +
+            \frac{2 \varepsilon M R}{t + 2} +
+            \frac{4 \max\limits_t{L_t} R^2}{(t + 2)^2} \leqslant \\
+            \leqslant \frac{t}{t + 2}(\varepsilon M R +
+            \frac{\max\limits_t{L_t} R^2}{t + 2})
+            + \frac{2 \varepsilon M R}{t + 2}
+            + \frac{4 \max\limits_t{L_t} R^2}{(t + 2)^2} =       \\
+            = \varepsilon M R + \frac{(t + 1)}{(t + 2)^2} \max\limits_t{L_t} R^2
+            \square
+        \end{split}
+    \end{equation}
+
+
+\end{proof}
+
+
+\end{document}

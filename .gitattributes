@@ -1,0 +1,5 @@
+*.png   binary  diff=exif
+*.pdf   -text
+
+*.tex   diff=tex
+*.py    diff=python
