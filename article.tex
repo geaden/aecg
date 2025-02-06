@@ -72,8 +72,18 @@
 \maketitle              % typeset the header of the contribution
 %
 \begin{abstract}
-    \textbf{TBD} The abstract should briefly summarize the contents of the paper in
-    150--250 words.
+    In this study we present an adaptive version of the Erroneous
+    Conditional Gradient (\textbf{ECG}) algorithm with a Coordinate-Wise
+    Erroneous Oracle (\textbf{CWEO}) and a Linear Minimization Oracle (LMO) on
+    a box-constrained feasible set. In this version of the algorithm the primary
+    step size strategy that we studied is iteration-dependent step size
+    $\eta_t = \min\Bigl\{1, \frac{2}{t + 2}\Bigr\}$. In addition, we analyzed
+    convergence guarantees of the algorithm based on iteration-dependent local
+    Lipschitz constant $L_t$. Specifically, we compared results for uniformly
+    bounded case, where $L_t \leqslant c \cdot L$ and dynamically bounded case,
+    where $L_t \geqslant L$. We discussed in details the convergence rate and
+    the stopping criterion of presented variants. Further work and practical
+    implications of the algorithm are introduced in conclusion.
 
     \keywords{Frank-Wolfe method\and Adaptive Optimization method \and Erroneous Conditional Gradient.}
 \end{abstract}
@@ -212,7 +222,7 @@ the convergence rate of the algorithm is $O(\frac{1}{t})$.
 
 \begin{theorem}[Stopping criterion when $L_t \leqslant c \cdot L$]
     \label{theorem:stopping_criterion}
-    Let $eta_t$ is a step size at each iteration of the algorithm,
+    Let $\eta_t$ is a step size at each iteration of the algorithm,
     $L_t \leqslant c \cdot L$, where
     $L$ is Lipschitz-gradient constant, then the following inequality holds:
 
