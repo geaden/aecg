@@ -10,9 +10,8 @@ from helper import ConstantDecayingStepSizeStrategy, DynamicDecayingStepSizeStra
 
 
 class ConstantDecayingStepSizeStrategyTest(unittest.TestCase):
-
     def setUp(self):
-        self.under_test = ConstantDecayingStepSizeStrategy(0.1, 13)
+        self.under_test = ConstantDecayingStepSizeStrategy(0.1, 1, 3, 4)
 
     def test_step_size(self):
         eta = self.under_test(2, np.zeros(10), np.zeros(10))
@@ -21,16 +20,15 @@ class ConstantDecayingStepSizeStrategyTest(unittest.TestCase):
 
 
 class DynamicDecayingStepSizeStrategyTest(unittest.TestCase):
-
     def setUp(self):
-        self.under_test = DynamicDecayingStepSizeStrategy(0.1)
+        self.under_test = DynamicDecayingStepSizeStrategy(0.1, 2, 3, 4)
 
     def test_step_size(self):
         eta = self.under_test(2, np.zeros(10), np.zeros(10))
 
         self.assertEqual(0.5, eta)
 
-    def test_is_stop_criterion_reached(self):
+    def test_is_adapted(self):
         np.random.seed(2025)
         self.n = 100
         self.eps = 0.1
@@ -38,15 +36,12 @@ class DynamicDecayingStepSizeStrategyTest(unittest.TestCase):
         self.A = self.A / self.A.sum(axis=1, keepdims=True)
         self.under_test(0, np.zeros(self.n), np.zeros(self.n))
 
-        self.assertFalse(
-            self.under_test.is_stop_criterion_reached(
+        self.assertTrue(
+            self.under_test.is_adapted(
                 t=0,
                 objective=PageRankObjective(self.A),
                 w=np.zeros(self.n),
                 w_next=np.zeros(self.n),
-                f_opt=64,
-                g_hat=np.zeros(self.n),
-                p=np.zeros(self.n),
             )
         )
 
@@ -63,12 +58,14 @@ class AECGTest(unittest.TestCase):
         self.upper_bound = np.ones(self.n)
         self.w0 = np.random.uniform(self.lower_bound, self.upper_bound)
         self.L = np.linalg.eigvals(self.A).max()
+        self.M = 10
+        self.R = 1
         self.w0 = np.random.uniform(self.lower_bound, self.upper_bound)
 
     def test_solve_algorithm_with_constant_decaying_step_size(self):
         """Test run iteration dependent with constant L."""
         under_test = self._create_under_test(
-            ConstantDecayingStepSizeStrategy(self.eps, self.L)
+            ConstantDecayingStepSizeStrategy(self.eps, self.L, self.M, self.R)
         )
 
         result = under_test.solve(self.w0)
@@ -77,7 +74,9 @@ class AECGTest(unittest.TestCase):
 
     def test_solve_algorithm_with_dynamic_decaying_step_size(self):
         """Test run iteration dependent with constant L."""
-        under_test = self._create_under_test(DynamicDecayingStepSizeStrategy(self.eps))
+        under_test = self._create_under_test(
+            DynamicDecayingStepSizeStrategy(self.eps, self.L, self.M, self.R)
+        )
 
         result = under_test.solve(self.w0)
 

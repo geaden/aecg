@@ -100,7 +100,8 @@ class Algorithm(ABC):
 
 class Objective(ABC):
     """
-    Objective function for Adaptive Erroneous Conditional Gradient.
+    Objective function for optimization by
+    Adaptive Erroneous Conditional Gradient.
     """
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
@@ -178,30 +179,30 @@ class StepSizeStrategy(ABC):
         """
         return NotImplementedError()
 
-    def is_stop_criterion_reached(
-        self,
-        t: int,
-        objective: Objective,
-        w: np.ndarray,
-        w_next: np.ndarray,
-        f_opt: np.ndarray,
-        g_hat: np.ndarray,
-        p: np.ndarray,
-    ) -> bool:
-        """Check if stop criterion is reached.
-
-        Args:
-            t: iteration number
-            w: current point to calculate objective value at
-            w_next: next obtained point to calculate objective value at
-            f_opt: approximation of optimal solution
-            g_hat: erroneous gradient
-            p: search direction
-
-        Returns:
-            True if stop criterion is reached, False otherwise
+    def adjust(self):
         """
-        return NotImplementedError
+        Adjust step size strategy.
+        """
+        raise NotImplementedError()
+
+    def adapt(self):
+        """
+        Adapt step size strategy.
+        """
+        raise NotImplementedError()
+
+    def is_adapted(
+        self, t: int, objective: Objective, w: np.ndarray, w_next: np.ndarray
+    ) -> bool:
+        """
+        Check if step size strategy is adapted.
+
+        :param t: iteration number
+        :param objective: objective function
+        :param w: current point
+        :param w_next: next point
+        """
+        raise NotImplementedError()
 
 
 class DecayingStepSizeStrategy(StepSizeStrategy):
@@ -211,38 +212,49 @@ class DecayingStepSizeStrategy(StepSizeStrategy):
 
     _epsilon: float
     _Lt: float
+    _M: float
+    _R: float
+    _is_adapted: bool
 
-    def __init__(self, epsilon: float):
+    def __init__(self, epsilon: float, L_0: float, M: float, R: float):
         """
         Initialize decaying step size strategy.
 
         Args:
             epsilon: relative error
+            L_0: Lipschitz-gradient constant
+            M: constant M
+            R: radius in simplex unit
         """
         self._epsilon = epsilon
+        self._Lt = L_0
+        self._M = M
+        self._R = R
+        self._is_adapted = True
 
     def __call__(self, t, g_hat: np.ndarray, p: np.ndarray) -> float:
-        return min(1, 2 / (t + 2))
+        return 2 / (t + 2)
 
-    def is_stop_criterion_reached(
-        self,
-        t: int,
-        objective: Objective,
-        w: np.ndarray,
-        w_next: np.ndarray,
-        f_opt: np.ndarray,
-        g_hat: np.ndarray,
-        p: np.ndarray,
+    def adjust(self):
+        # Adjust L_t only in case of it the step size is adapted.
+        if self._is_adapted:
+            self._Lt /= 2
+
+    def adapt(self):
+        # Since adapt is called then the step size is not adapted.
+        self._is_adapted = False
+        self._Lt *= 2
+
+    def is_adapted(
+        self, t: int, objective: Objective, w: np.ndarray, w_next: np.ndarray
     ) -> bool:
-        M = np.linalg.norm(objective.gradient(w))
-        R = np.linalg.norm(p)
-        rhs = self._epsilon * M * R + (4 * self._Lt * np.square(R) ** 2) / (
-            (t + 2) ** 2
+        # Set adapted flag.
+        self._is_adapted = True
+        return (
+            objective(w_next) - objective(w)
+            <= self._epsilon * self._M * self._R
+            + 4 * self._Lt * self._R**2 / (t + 2) ** 2
         )
-        if objective(w_next) - f_opt <= rhs:
-            print(f"Converged at iteration {t + 1}")
-            return True
-        return False
 
 
 class ConstantDecayingStepSizeStrategy(DecayingStepSizeStrategy):
@@ -250,54 +262,28 @@ class ConstantDecayingStepSizeStrategy(DecayingStepSizeStrategy):
     Constant decaying step size strategy for Adaptive Erroneous Conditional Gradient.
     """
 
-    def __init__(self, epsilon: float, L: float):
-        """
-        Initialize constant decaying step size strategy.
-
-        Args:
-            epsilon: relative error
-            L: c Lipschitz-gradient constant
-        """
-        super().__init__(epsilon)
-        self._Lt = L
-
 
 class DynamicDecayingStepSizeStrategy(DecayingStepSizeStrategy):
     """
     Dynamic decaying step size strategy for Adaptive Erroneous Conditional Gradient.
     """
 
-    def __init__(self, epsilon):
-        super().__init__(epsilon)
-        self._Lt = 0
+    _L_0: float
 
-    def is_stop_criterion_reached(
-        self, t, objective, w, w_next, f_opt, g_hat, p
-    ) -> bool:
-        M = np.linalg.norm(objective.gradient(w))
-        R = np.linalg.norm(p)
+    def __init__(self, epsilon, L_0, M, R):
+        super().__init__(epsilon, L_0, M, R)
+        self._L_0 = L_0
 
-        if R == 0:
-            return False
+    def adjust(self):
+        super().adjust()
+        self._ensure_Lt()
 
-        eta_t = self(t, g_hat, p)
-        Lt = (
-            objective(w_next)
-            - objective(w)
-            - eta_t * np.dot(g_hat, p)
-            - eta_t * self._epsilon * M * R
-        ) / (eta_t**2 * np.square(R))
-        self._Lt = max(self._Lt, Lt)
-        log(f"Lt = {self._Lt}")
-        rhs = (
-            t / (t + 2) * (objective(w) - f_opt)
-            + 4 * self._epsilon * M * R / (t + 2)
-            + 4 * self._Lt * np.square(R) / (t + 2) ** 2
-        )
-        if objective(w_next) - f_opt <= rhs:
-            print(f"Converged at iteration {t + 1}")
-            return True
-        return False
+    def adapt(self):
+        super().adapt()
+        self._ensure_Lt()
+
+    def _ensure_Lt(self):
+        self._Lt = min(self._Lt, 2 * self._L_0)
 
 
 class ErroneousOracle(ABC):

@@ -46,7 +46,7 @@
 \newcommand{\errgrad}{\hat{g}}
 \begin{document}
 %
-\title{Adaptive Frank-Wolfe Method With Relative-Error }
+\title{Adaptive variant of Frank-Wolfe method for inexact problems}
 %
 %\titlerunning{Abbreviated paper title}
 % If the paper title is too long for the running head, you can set
@@ -72,20 +72,19 @@
 \maketitle              % typeset the header of the contribution
 %
 \begin{abstract}
-    In this study we present an adaptive version of the Erroneous
-    Conditional Gradient (\textbf{ECG}) algorithm with a Coordinate-Wise
-    Erroneous Oracle (\textbf{CWEO}) and a Linear Minimization Oracle (LMO) on
-    a box-constrained feasible set. In this version of the algorithm the primary
-    step size strategy that we studied is iteration-dependent step size
-    $\eta_t = \min\Bigl\{1, \frac{2}{t + 2}\Bigr\}$. In addition, we analyzed
-    convergence guarantees of the algorithm based on iteration-dependent local
-    Lipschitz constant $L_t$. Specifically, we compared results for uniformly
-    bounded case, where $L_t \leqslant c \cdot L$ and dynamically bounded case,
-    where $L_t \geqslant L$. We discussed in details the convergence rate and
-    the stopping criterion of presented variants. Further work and practical
-    implications of the algorithm are introduced in conclusion.
+    In this article we present an adaptive versions of the Erroneous
+    Conditional Gradient (\textbf{ECG}) algorithm with an
+    Erroneous Oracle (\textbf{EO}) and a Linear Minimization Oracle (\textbf{LMO})
+    on a box-constrained feasible set. We study two step-size strategies:
+    one that is dependent on iteration another one that is dependent on
+    L-smoothness constant. The implementation of these algorithms was tested through
+    computational experiments. The quality of the solution aligns
+    with theoretical expectations.
+    Further research and practical implications of these algorithms are discussed in
+    the conclusion.
 
-    \keywords{Frank-Wolfe method\and Adaptive Optimization method \and Erroneous Conditional Gradient.}
+    \keywords{Frank-Wolfe method \and Adaptive method \and
+        Erroneous Conditional Gradient \and Inexact oracle.}
 \end{abstract}
 %
 %

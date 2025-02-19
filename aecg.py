@@ -57,9 +57,9 @@ class AECG(Algorithm):
 
         self._track_history(w)
 
-        f_opt = self._objective(w)
-
         for t in range(self._max_iterations):
+            # Adjust step size
+            self._step_size.adjust()
             # Obtain gradient value from ErroneousOracle
             g_hat = self._eo(self._objective.gradient, w)
             log(f"{g_hat=}")
@@ -76,17 +76,11 @@ class AECG(Algorithm):
             w_next = w + eta_t * p
             log(f"{w_next=}")
 
-            # Find optimal solution.
-            f_opt = min(f_opt, self._objective(w_next))
-            log(f"{f_opt=}")
-
-            if self._step_size.is_stop_criterion_reached(
-                t, self._objective, w, w_next, f_opt, g_hat, p
-            ):
-                print(f"Converged at {t + 1}")
-                break
-
-            w = w_next
+            if self._step_size.is_adapted(t, self._objective, w, w_next):
+                w = w_next
+            else:
+                # Adapt step size
+                self._step_size.adapt()
 
             self._track_history(w)
 
