@@ -13,8 +13,8 @@ from abc import ABC, abstractmethod
 type Gradient = Callable[[int], np.ndarray]
 
 
-_CHECK = True
-_LOG_ENABLED = False
+_CHECK = False
+_LOG_ENABLED = True
 
 
 def log(message: str):
@@ -192,7 +192,13 @@ class StepSizeStrategy(ABC):
         raise NotImplementedError()
 
     def is_adapted(
-        self, t: int, objective: Objective, w: np.ndarray, w_next: np.ndarray
+        self,
+        t: int,
+        objective: Objective,
+        w: np.ndarray,
+        w_next: np.ndarray,
+        g_hat: np.ndarray,
+        p: np.ndarray,
     ) -> bool:
         """
         Check if step size strategy is adapted.
@@ -201,6 +207,8 @@ class StepSizeStrategy(ABC):
         :param objective: objective function
         :param w: current point
         :param w_next: next point
+        :param g_hat: erroneous gradient
+        :param p: search direction
         """
         raise NotImplementedError()
 
@@ -246,7 +254,13 @@ class DecayingStepSizeStrategy(StepSizeStrategy):
         self._Lt *= 2
 
     def is_adapted(
-        self, t: int, objective: Objective, w: np.ndarray, w_next: np.ndarray
+        self,
+        t: int,
+        objective: Objective,
+        w: np.ndarray,
+        w_next: np.ndarray,
+        g_hat: np.ndarray,
+        p: np.ndarray,
     ) -> bool:
         # Set adapted flag.
         self._is_adapted = True
@@ -284,6 +298,66 @@ class DynamicDecayingStepSizeStrategy(DecayingStepSizeStrategy):
 
     def _ensure_Lt(self):
         self._Lt = min(self._Lt, 2 * self._L_0)
+
+
+class LtDependentStepSizeStrategy(StepSizeStrategy):
+    """
+    Step size strategy for Adaptive Erroneous Conditional Gradient.
+    """
+
+    _L_0: float
+    _epsilon: float
+    _M: float
+    _R: float
+    _is_adapted: bool
+    _is_bounded: bool
+
+    def __init__(
+        self, epsilon: float, L_0: float, M: float, R: float, is_bounded: bool
+    ):
+        self._epsilon = epsilon
+        self._M = M
+        self._R = R
+        self._L_0 = L_0
+        self._is_adapted = True
+        self._is_bounded = is_bounded
+        self._Lt = L_0
+
+    def __call__(self, t, g_hat: np.ndarray, p: np.ndarray) -> float:
+        return -np.dot(g_hat, p) / (self._Lt * np.linalg.norm(p) ** 2)
+
+    def adjust(self):
+        # Adjust L_t only in case of it the step size is adapted.
+        if self._is_adapted:
+            self._Lt /= 2
+
+    def adapt(self):
+        # Since adapt is called then the step size is not adapted.
+        self._is_adapted = False
+        self._Lt *= 2
+
+    def is_adapted(
+        self,
+        t: float,
+        objective: Objective,
+        w: np.ndarray,
+        w_next: np.ndarray,
+        g_hat: np.ndarray,
+        p: np.ndarray,
+    ):
+        # Set adapted flag.
+        self._is_adapted = True
+
+        if not self._is_bounded:
+            lhs = -(np.dot(g_hat, p) / (2 * self._Lt * np.linalg.norm(p) ** 2))
+        else:
+            lhs = -(
+                np.dot(g_hat, p)
+                * (1 / 2 * np.dot(g_hat, p) + self._epsilon * self._M * self._R)
+                / (self._Lt * np.linalg.norm(p) ** 2)
+            )
+
+        return objective(w_next) - objective(w) <= lhs
 
 
 class ErroneousOracle(ABC):
