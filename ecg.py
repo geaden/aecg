@@ -28,6 +28,7 @@ class ECG(Algorithm):
     _M: float
     _R: float
     _Lt: list[float]
+    _delta: list[float]
 
     def __init__(
         self,
@@ -135,6 +136,32 @@ class ECG(Algorithm):
         denominator = 2 * np.linalg.norm(p) ** 2
         return numerator / denominator
 
+    def solve_delta(self):
+        """
+        Solve using erroneous conditional gradient with delta.
+
+        \delta^t := f^t - f^*
+        \delta^{t+1} \leqslant \frac{t}{t + 2}\delta^t + \frac{2(1 + \beta)\varepsilon M R}{t + 2} + \frac{4 L_t R^2}{(t + 2)^2}
+        """
+        dt = self._objective(self._history[0][0]) - self._objective(
+            self._history[-1][0]
+        )
+
+        self._delta = [dt]
+        for t in range(self._max_iterations):
+            delta_t = (
+                t / (t + 2) * self._delta[t]
+                + 2
+                * (1 + self._boundedness)
+                * self._epsilon
+                * self._M
+                * self._R
+                / (t + 2)
+                + self._Lt[t] * self._R**2 / (t + 2) ** 2
+            )
+
+            self._delta.append(delta_t)
+
     @property
     def Lt(self) -> list[float]:
         """
@@ -144,3 +171,13 @@ class ECG(Algorithm):
             History of $L_t$.
         """
         return self._Lt
+
+    @property
+    def delta(self) -> list[float]:
+        """
+        History of $\delta_t$.
+
+        Returns:
+            History of $\delta_t$
+        """
+        return self._delta
