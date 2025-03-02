@@ -2,6 +2,7 @@
 Helper types and classes for Adaptive Erroneous Conditional Gradient.
 """
 
+import enum
 import time
 from typing import Callable
 
@@ -10,11 +11,12 @@ from abc import ABC, abstractmethod
 
 
 # Gradient function typealias
-type Gradient = Callable[[int], np.ndarray]
+Gradient = Callable[[int], np.ndarray]
+History = tuple[np.ndarray, int]
 
 
-_CHECK = False
-_LOG_ENABLED = True
+_CHECK = True
+_LOG_ENABLED = False
 
 
 def log(message: str):
@@ -38,6 +40,15 @@ def check(condition: bool, message: str):
         print(message)
 
 
+class Boundedness(enum.IntEnum):
+    """
+    Boundedness of the problem.
+    """
+
+    UNBOUNDED = 0
+    BOUNDED = 1
+
+
 class Algorithm(ABC):
     """
     Abstract algorithm.
@@ -45,7 +56,7 @@ class Algorithm(ABC):
 
     _label: str
     _keep_history: bool
-    _history: list[tuple[np.ndarray, int]]
+    _history: list[History]
 
     def __init__(self, label: str, keep_history: bool = False):
         """
@@ -89,7 +100,7 @@ class Algorithm(ABC):
             self._history.append((w, time.time()))
 
     @property
-    def history(self) -> list[tuple[int, np.ndarray]]:
+    def history(self) -> list[History]:
         """Obtain history of algorithm.
 
         Returns:
@@ -161,16 +172,20 @@ class StepSizeStrategy(ABC):
     Step size strategy for Adaptive Erroneous Conditional Gradient.
     """
 
+    _L_t: float
+
+    def __init__(self, L_0: float):
+        self._L_t = L_0
+        self._is_adjust_needed = True
+
     def __call__(
         self,
-        t: int,
         g_hat: np.ndarray,
         p: np.ndarray,
     ) -> float:
         """Calculate step size.
 
         Args:
-            t: iteration number
             g: erroneous gradient
             p: search direction
 
@@ -183,181 +198,75 @@ class StepSizeStrategy(ABC):
         """
         Adjust step size strategy.
         """
-        raise NotImplementedError()
+        self._L_t *= 0.5
 
     def adapt(self):
         """
         Adapt step size strategy.
         """
-        raise NotImplementedError()
+        self._L_t *= 2
 
     def is_adapted(
         self,
-        t: int,
-        objective: Objective,
-        w: np.ndarray,
-        w_next: np.ndarray,
+        f: np.ndarray,
+        f_next: np.ndarray,
         g_hat: np.ndarray,
         p: np.ndarray,
     ) -> bool:
         """
         Check if step size strategy is adapted.
+        This call is required in overridden classes.
 
-        :param t: iteration number
         :param objective: objective function
-        :param w: current point
-        :param w_next: next point
+        :param f: value of the objective function at the current point
+        :param f_next: value of the objective function at the next point
         :param g_hat: erroneous gradient
         :param p: search direction
         """
         raise NotImplementedError()
 
 
-class DecayingStepSizeStrategy(StepSizeStrategy):
+class SmoothnessStepSizeStrategy(StepSizeStrategy):
     """
-    Decaying step size strategy for Adaptive Erroneous Conditional Gradient.
-    """
-
-    _epsilon: float
-    _Lt: float
-    _M: float
-    _R: float
-    _is_adapted: bool
-
-    def __init__(self, epsilon: float, L_0: float, M: float, R: float):
-        """
-        Initialize decaying step size strategy.
-
-        Args:
-            epsilon: relative error
-            L_0: Lipschitz-gradient constant
-            M: constant M
-            R: radius in simplex unit
-        """
-        self._epsilon = epsilon
-        self._Lt = L_0
-        self._M = M
-        self._R = R
-        self._is_adapted = True
-
-    def __call__(self, t, g_hat: np.ndarray, p: np.ndarray) -> float:
-        return 2 / (t + 2)
-
-    def adjust(self):
-        # Adjust L_t only in case of it the step size is adapted.
-        if self._is_adapted:
-            self._Lt /= 2
-
-    def adapt(self):
-        # Since adapt is called then the step size is not adapted.
-        self._is_adapted = False
-        self._Lt *= 2
-
-    def is_adapted(
-        self,
-        t: int,
-        objective: Objective,
-        w: np.ndarray,
-        w_next: np.ndarray,
-        g_hat: np.ndarray,
-        p: np.ndarray,
-    ) -> bool:
-        # Set adapted flag.
-        self._is_adapted = True
-        return (
-            objective(w_next) - objective(w)
-            <= self._epsilon * self._M * self._R
-            + 4 * self._Lt * self._R**2 / (t + 2) ** 2
-        )
-
-
-class ConstantDecayingStepSizeStrategy(DecayingStepSizeStrategy):
-    """
-    Constant decaying step size strategy for Adaptive Erroneous Conditional Gradient.
+    Implementation of |StepSizeStrategy| for |AECG|
+    that depends on $L_t$.
     """
 
-
-class DynamicDecayingStepSizeStrategy(DecayingStepSizeStrategy):
-    """
-    Dynamic decaying step size strategy for Adaptive Erroneous Conditional Gradient.
-    """
-
-    _L_0: float
-
-    def __init__(self, epsilon, L_0, M, R):
-        super().__init__(epsilon, L_0, M, R)
-        self._L_0 = L_0
-
-    def adjust(self):
-        super().adjust()
-        self._ensure_Lt()
-
-    def adapt(self):
-        super().adapt()
-        self._ensure_Lt()
-
-    def _ensure_Lt(self):
-        self._Lt = min(self._Lt, 2 * self._L_0)
-
-
-class LtDependentStepSizeStrategy(StepSizeStrategy):
-    """
-    Step size strategy for Adaptive Erroneous Conditional Gradient.
-    """
-
-    _L_0: float
+    _boundedness: Boundedness
     _epsilon: float
     _M: float
     _R: float
-    _is_adapted: bool
-    _is_bounded: bool
 
     def __init__(
-        self, epsilon: float, L_0: float, M: float, R: float, is_bounded: bool
+        self, epsilon: float, L_0: float, M: float, R: float, _boundedness: Boundedness
     ):
+        super().__init__(L_0)
         self._epsilon = epsilon
         self._M = M
         self._R = R
         self._L_0 = L_0
         self._is_adapted = True
-        self._is_bounded = is_bounded
-        self._Lt = L_0
+        self._boundedness = _boundedness
 
-    def __call__(self, t, g_hat: np.ndarray, p: np.ndarray) -> float:
-        return -np.dot(g_hat, p) / (self._Lt * np.linalg.norm(p) ** 2)
-
-    def adjust(self):
-        # Adjust L_t only in case of it the step size is adapted.
-        if self._is_adapted:
-            self._Lt /= 2
-
-    def adapt(self):
-        # Since adapt is called then the step size is not adapted.
-        self._is_adapted = False
-        self._Lt *= 2
+    def __call__(self, g_hat: np.ndarray, p: np.ndarray) -> float:
+        numerator = (
+            np.dot(g_hat, p) + self._boundedness * self._epsilon * self._M * self._R
+        )
+        denominator = self._L_t * np.linalg.norm(p) ** 2
+        return -numerator / denominator
 
     def is_adapted(
         self,
-        t: float,
-        objective: Objective,
-        w: np.ndarray,
-        w_next: np.ndarray,
+        f: np.ndarray,
+        f_next: np.ndarray,
         g_hat: np.ndarray,
         p: np.ndarray,
     ):
-        # Set adapted flag.
-        self._is_adapted = True
-
-        if not self._is_bounded:
-            lhs = -(np.dot(g_hat, p) / (2 * self._Lt * np.linalg.norm(p) ** 2))
-        else:
-            lhs = -(
-                np.dot(g_hat, p)
-                * (1 / 2 * np.dot(g_hat, p) + self._epsilon * self._M * self._R)
-                / (self._Lt * np.linalg.norm(p) ** 2)
-            )
-
-        return objective(w_next) - objective(w) <= lhs
+        numerator = np.square(
+            self._boundedness * self._epsilon * self._M * self._R + np.dot(g_hat, p)
+        )
+        denominator = 2 * self._L_t * np.square(np.linalg.norm(p))
+        return f - f_next >= numerator / denominator
 
 
 class ErroneousOracle(ABC):
@@ -433,13 +342,6 @@ class CWEOracle(ErroneousOracle):
         Returns:
             If CWEO properties are violated or not.
         """
-
-        # Check sign preservation
-        for i in range(len(gradient)):
-            if np.sign(erroneous_gradient[i]) != np.sign(gradient[i]):
-                print(f"Sign preservation property failed at {i}")
-                return False
-
         # Check relative coordinate-wise error
         for i in range(len(gradient)):
             abs_gradient = abs(gradient[i])
