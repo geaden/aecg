@@ -172,10 +172,10 @@ class StepSizeStrategy(ABC):
     Step size strategy for Adaptive Erroneous Conditional Gradient.
     """
 
-    _L_t: float
+    _L_t: np.longdouble
 
-    def __init__(self, L_0: float):
-        self._L_t = L_0
+    def __init__(self, L_0: np.complex128):
+        self._L_t = L_0.astype(np.longdouble)
         self._is_adjust_needed = True
 
     def __call__(
@@ -238,7 +238,12 @@ class SmoothnessStepSizeStrategy(StepSizeStrategy):
     _R: float
 
     def __init__(
-        self, epsilon: float, L_0: float, M: float, R: float, _boundedness: Boundedness
+        self,
+        epsilon: float,
+        L_0: np.longdouble,
+        M: float,
+        R: float,
+        _boundedness: Boundedness,
     ):
         super().__init__(L_0)
         self._epsilon = epsilon
@@ -262,10 +267,10 @@ class SmoothnessStepSizeStrategy(StepSizeStrategy):
         g_hat: np.ndarray,
         p: np.ndarray,
     ):
-        numerator = np.square(
+        numerator = (
             self._boundedness * self._epsilon * self._M * self._R + np.dot(g_hat, p)
-        )
-        denominator = 2 * self._L_t * np.square(np.linalg.norm(p))
+        ) ** 2
+        denominator = 2 * self._L_t * np.linalg.norm(p) ** 2
         return f - f_next >= numerator / denominator
 
 

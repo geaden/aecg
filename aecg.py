@@ -19,6 +19,8 @@ class AECG(Algorithm):
     Implementation of Adaptive Erroneous Conditional Gradient.
     """
 
+    _DELTA = 1e-4
+
     _objective: Objective
     _eo: ErroneousOracle
     _lmo: LinearMinimizationOracle
@@ -55,6 +57,7 @@ class AECG(Algorithm):
         # Initial value
         w = w0.copy().astype(np.float64)
         self._track_history(w)
+        condition = float("inf")
         for t in range(self._max_iterations):
             # Adjust step size
             self._step_size.adjust()
@@ -85,5 +88,10 @@ class AECG(Algorithm):
 
             w = w_next
             self._track_history(w)
+            condition = min(
+                abs(self._step_size._boundedness + np.dot(g_hat, p)), condition
+            )
+            if condition <= self._DELTA:
+                break
 
         return w
