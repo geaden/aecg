@@ -254,9 +254,8 @@ class SmoothnessStepSizeStrategy(StepSizeStrategy):
         self._boundedness = _boundedness
 
     def __call__(self, g_hat: np.ndarray, p: np.ndarray) -> float:
-        numerator = (
-            np.dot(g_hat, p) + self._boundedness * self._epsilon * self._M * self._R
-        )
+        M = self._compute_M(g_hat)
+        numerator = np.dot(g_hat, p) + self._boundedness * self._epsilon * M * self._R
         denominator = self._L_t * np.linalg.norm(p) ** 2
         return -numerator / denominator
 
@@ -267,11 +266,17 @@ class SmoothnessStepSizeStrategy(StepSizeStrategy):
         g_hat: np.ndarray,
         p: np.ndarray,
     ):
+        M = self._compute_M(g_hat)
         numerator = (
-            self._boundedness * self._epsilon * self._M * self._R + np.dot(g_hat, p)
+            self._boundedness * self._epsilon * M * self._R + np.dot(g_hat, p)
         ) ** 2
         denominator = 2 * self._L_t * np.linalg.norm(p) ** 2
         return f - f_next >= numerator / denominator
+
+    def _compute_M(self, g_hat: np.ndarray) -> np.float64:
+        if False:
+            return self._M
+        return np.linalg.norm(g_hat)
 
 
 class ErroneousOracle(ABC):

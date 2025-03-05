@@ -127,8 +127,9 @@ class ECG(Algorithm):
             $L_t$.
         """
         j = t + 2
+        M = self._compute_M(g_hat)
         inexact_part = (
-            np.dot(g_hat, p) + self._boundedness * self._epsilon * self._M * self._R
+            np.dot(g_hat, p) + self._boundedness * self._epsilon * M * self._R
         )
         numerator = j * (
             j * (self._objective(w_next) - self._objective(w)) - 2 * inexact_part
@@ -149,14 +150,12 @@ class ECG(Algorithm):
 
         self._delta = [dt]
         for t in range(self._max_iterations):
+            w, _ = self._history[t]
+            g_hat = self._eo(self._objective.gradient, w)
+            M = self._compute_M(g_hat)
             delta_t = (
                 t / (t + 2) * self._delta[t]
-                + 2
-                * (1 + self._boundedness)
-                * self._epsilon
-                * self._M
-                * self._R
-                / (t + 2)
+                + 2 * (1 + self._boundedness) * self._epsilon * M * self._R / (t + 2)
                 + self._Lt[t] * self._R**2 / (t + 2) ** 2
             )
 
@@ -181,3 +180,14 @@ class ECG(Algorithm):
             History of $\delta_t$
         """
         return self._delta
+
+    def _compute_M(self, g_hat: np.ndarray) -> np.float64:
+        """
+        Compute $M$.
+
+        Returns:
+            $M$.
+        """
+        if False:
+            return self._M
+        return np.linalg.norm(g_hat)
