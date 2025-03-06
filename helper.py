@@ -17,6 +17,8 @@ History = tuple[np.ndarray, int]
 
 _CHECK = True
 _LOG_ENABLED = False
+# Enables computing M value instead of relying passed value.
+_COMPUTE_M = True
 
 
 def log(message: str):
@@ -217,16 +219,37 @@ class StepSizeStrategy(ABC):
         Check if step size strategy is adapted.
         This call is required in overridden classes.
 
-        :param objective: objective function
-        :param f: value of the objective function at the current point
-        :param f_next: value of the objective function at the next point
-        :param g_hat: erroneous gradient
-        :param p: search direction
+        Args:
+            objective: objective function
+            f: value of the objective function at the current point
+            f_next: value of the objective function at the next point
+            g_hat: erroneous gradient
+            p: search direction
         """
         raise NotImplementedError()
 
 
-class SmoothnessStepSizeStrategy(StepSizeStrategy):
+class MComputeMixin:
+    """
+    Mixing for computing $M$ value.
+    """
+
+    def compute_M(self, g_hat: np.ndarray) -> np.float64:
+        """
+        Computes $M$ from the given inexact gradient value.
+
+        Args:
+          g_hat: inexact gradient value
+
+        Returns:
+            computed value of $M$
+        """
+        if _COMPUTE_M:
+            return np.linalg.norm(g_hat)
+        return self._M
+
+
+class SmoothnessStepSizeStrategy(StepSizeStrategy, MComputeMixin):
     """
     Implementation of |StepSizeStrategy| for |AECG|
     that depends on $L_t$.
@@ -254,7 +277,7 @@ class SmoothnessStepSizeStrategy(StepSizeStrategy):
         self._boundedness = _boundedness
 
     def __call__(self, g_hat: np.ndarray, p: np.ndarray) -> float:
-        M = self._compute_M(g_hat)
+        M = self.compute_M(g_hat)
         numerator = np.dot(g_hat, p) + self._boundedness * self._epsilon * M * self._R
         denominator = self._L_t * np.linalg.norm(p) ** 2
         return -numerator / denominator
@@ -266,17 +289,12 @@ class SmoothnessStepSizeStrategy(StepSizeStrategy):
         g_hat: np.ndarray,
         p: np.ndarray,
     ):
-        M = self._compute_M(g_hat)
+        M = self.compute_M(g_hat)
         numerator = (
             self._boundedness * self._epsilon * M * self._R + np.dot(g_hat, p)
         ) ** 2
         denominator = 2 * self._L_t * np.linalg.norm(p) ** 2
         return f - f_next >= numerator / denominator
-
-    def _compute_M(self, g_hat: np.ndarray) -> np.float64:
-        if False:
-            return self._M
-        return np.linalg.norm(g_hat)
 
 
 class ErroneousOracle(ABC):

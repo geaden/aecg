@@ -12,10 +12,12 @@ from helper import (
     LinearMinimizationOracle,
     Objective,
     log,
+    MComputeMixin,
+    check,
 )
 
 
-class ECG(Algorithm):
+class ECG(Algorithm, MComputeMixin):
     """
     Implementation of Erroneous Conditional Gradient.
     """
@@ -127,7 +129,7 @@ class ECG(Algorithm):
             $L_t$.
         """
         j = t + 2
-        M = self._compute_M(g_hat)
+        M = self.compute_M(g_hat)
         inexact_part = (
             np.dot(g_hat, p) + self._boundedness * self._epsilon * M * self._R
         )
@@ -142,8 +144,11 @@ class ECG(Algorithm):
         Solve using erroneous conditional gradient with delta.
 
         \delta^t := f^t - f^*
-        \delta^{t+1} \leqslant \frac{t}{t + 2}\delta^t + \frac{2(1 + \beta)\varepsilon M R}{t + 2} + \frac{4 L_t R^2}{(t + 2)^2}
+        \delta^{t+1} \leqslant \frac{t}{t + 2}\delta^t +
+        \frac{2(1 + \beta)\varepsilon M R}{t + 2} + \frac{4 L_t R^2}{(t + 2)^2}
         """
+        check(len(self._history) > 0, "Enable history to solve for delta")
+
         dt = self._objective(self._history[0][0]) - self._objective(
             self._history[-1][0]
         )
@@ -152,7 +157,7 @@ class ECG(Algorithm):
         for t in range(self._max_iterations):
             w, _ = self._history[t]
             g_hat = self._eo(self._objective.gradient, w)
-            M = self._compute_M(g_hat)
+            M = self.compute_M(g_hat)
             delta_t = (
                 t / (t + 2) * self._delta[t]
                 + 2 * (1 + self._boundedness) * self._epsilon * M * self._R / (t + 2)
@@ -180,14 +185,3 @@ class ECG(Algorithm):
             History of $\delta_t$
         """
         return self._delta
-
-    def _compute_M(self, g_hat: np.ndarray) -> np.float64:
-        """
-        Compute $M$.
-
-        Returns:
-            $M$.
-        """
-        if False:
-            return self._M
-        return np.linalg.norm(g_hat)

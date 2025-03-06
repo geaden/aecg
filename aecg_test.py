@@ -2,8 +2,6 @@
 
 import unittest
 
-import numpy as np
-
 from aecg import AECG
 from helper import (
     Boundedness,
@@ -18,7 +16,7 @@ from testutils import BaseTestCase
 
 class AECGTest(BaseTestCase):
     def test_run_aecg(self):
-        """Run AECG."""
+        """Run AECG tests."""
         for boundedness in Boundedness:
             with self.subTest(beta=boundedness):
                 under_test = self._create_under_test(

@@ -1,6 +1,5 @@
 import unittest
 
-import numpy as np
 from ecg import ECG
 from helper import Boundedness, BoxSetLMO, CWEOracle, PageRankObjective
 from testutils import BaseTestCase
