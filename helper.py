@@ -279,7 +279,9 @@ class SmoothnessStepSizeStrategy(StepSizeStrategy, MComputeMixin):
     def __call__(self, g_hat: np.ndarray, p: np.ndarray) -> float:
         M = self.compute_M(g_hat)
         numerator = np.dot(g_hat, p) + self._boundedness * self._epsilon * M * self._R
-        denominator = self._L_t * np.linalg.norm(p) ** 2
+        denominator = np.multiply(
+            self._L_t, np.linalg.norm(p) ** 2, dtype=np.longdouble
+        )
         return -numerator / denominator
 
     def is_adapted(
@@ -288,12 +290,16 @@ class SmoothnessStepSizeStrategy(StepSizeStrategy, MComputeMixin):
         f_next: np.ndarray,
         g_hat: np.ndarray,
         p: np.ndarray,
-    ):
+    ) -> bool:
         M = self.compute_M(g_hat)
-        numerator = (
-            self._boundedness * self._epsilon * M * self._R + np.dot(g_hat, p)
-        ) ** 2
-        denominator = 2 * self._L_t * np.linalg.norm(p) ** 2
+        numerator = np.pow(
+            self._boundedness * self._epsilon * M * self._R + np.dot(g_hat, p), 2
+        )
+        denominator = np.multiply(
+            np.multiply(2, self._L_t, dtype=np.longdouble),
+            np.pow(np.linalg.norm(p), 2, dtype=np.longdouble),
+            dtype=np.longdouble,
+        )
         return f - f_next >= numerator / denominator
 
 

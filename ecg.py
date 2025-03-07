@@ -103,7 +103,7 @@ class ECG(Algorithm, MComputeMixin):
             w_next = w + eta_t * p
             log(f"{w_next=}")
 
-            L_t = self._compute_Lt(t, w, w_next, g_hat, p)
+            L_t = max(self._compute_Lt(t, w, w_next, g_hat, p), np.longlong(0))
 
             self._Lt.append(L_t)
 
@@ -121,7 +121,7 @@ class ECG(Algorithm, MComputeMixin):
         w_next: np.ndarray,
         g_hat: np.ndarray,
         p: np.ndarray,
-    ) -> float:
+    ) -> np.longlong:
         """
         Compute $L_t$.
 
@@ -140,7 +140,7 @@ class ECG(Algorithm, MComputeMixin):
         return numerator / denominator
 
     def solve_delta(self):
-        """
+        r"""
         Solve using erroneous conditional gradient with delta.
 
         \delta^t := f^t - f^*
@@ -178,7 +178,7 @@ class ECG(Algorithm, MComputeMixin):
 
     @property
     def delta(self) -> list[float]:
-        """
+        r"""
         History of $\delta_t$.
 
         Returns:
