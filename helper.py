@@ -234,19 +234,20 @@ class MComputeMixin:
     Mixing for computing $M$ value.
     """
 
-    def compute_M(self, g_hat: np.ndarray) -> np.float64:
+    _M: np.longdouble
+
+    def __init__(self):
+        self._M = np.longdouble(0)
+
+    def compute_M(self, gradient: np.ndarray):
         """
         Computes $M$ from the given inexact gradient value.
 
         Args:
-          g_hat: inexact gradient value
-
-        Returns:
-            computed value of $M$
+          gradient: gradient value
         """
         if _COMPUTE_M:
-            return np.linalg.norm(g_hat)
-        return self._M
+            self._M = np.linalg.norm(gradient)
 
 
 class SmoothnessStepSizeStrategy(StepSizeStrategy, MComputeMixin):
@@ -277,8 +278,7 @@ class SmoothnessStepSizeStrategy(StepSizeStrategy, MComputeMixin):
         self._boundedness = _boundedness
 
     def __call__(self, g_hat: np.ndarray, p: np.ndarray) -> float:
-        M = self.compute_M(g_hat)
-        numerator = np.dot(g_hat, p) + self._boundedness * self._epsilon * M * self._R
+        numerator = self._compute_numerator(g_hat, p)
         denominator = np.multiply(
             self._L_t, np.linalg.norm(p) ** 2, dtype=np.longdouble
         )
@@ -291,16 +291,16 @@ class SmoothnessStepSizeStrategy(StepSizeStrategy, MComputeMixin):
         g_hat: np.ndarray,
         p: np.ndarray,
     ) -> bool:
-        M = self.compute_M(g_hat)
-        numerator = np.pow(
-            self._boundedness * self._epsilon * M * self._R + np.dot(g_hat, p), 2
-        )
+        numerator = np.pow(self._compute_numerator(g_hat, p), 2)
         denominator = np.multiply(
             np.multiply(2, self._L_t, dtype=np.longdouble),
             np.pow(np.linalg.norm(p), 2, dtype=np.longdouble),
             dtype=np.longdouble,
         )
         return f - f_next >= numerator / denominator
+
+    def _compute_numerator(self, g_hat: np.ndarray, p: np.ndarray) -> np.longdouble:
+        return self._boundedness * self._epsilon * self._M * self._R + np.dot(g_hat, p)
 
 
 class ErroneousOracle(ABC):
@@ -352,11 +352,12 @@ class CWEOracle(ErroneousOracle):
         self._ensure_relative_error_bounds()
         true_gradient = gradient(x)
         erroneous_gradient = np.zeros_like(true_gradient)
-        for i in range(len(true_gradient)):
-            gradient_i = true_gradient[i]
-            error = np.random.uniform(1 - self.epsilon, 1 + self.epsilon)
-            # Relative error with sign preservation
-            erroneous_gradient[i] = np.sign(gradient_i) * abs(gradient_i) * error
+        error = (
+            np.random.uniform(-1, 1, size=x.shape)
+            * self.epsilon
+            * np.abs(true_gradient)
+        )
+        erroneous_gradient = true_gradient + error
 
         check(
             self._is_valid(true_gradient, erroneous_gradient),

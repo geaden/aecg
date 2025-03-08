@@ -61,6 +61,7 @@ class AECG(Algorithm):
         for t in range(self._max_iterations):
             # Adjust step size
             self._step_size.adjust()
+
             # Obtain gradient value from ErroneousOracle
             g_hat = self._eo(self._objective.gradient, w)
             log(f"{g_hat=}")
@@ -70,6 +71,10 @@ class AECG(Algorithm):
             log(f"{p=}")
 
             while True:
+                # Compute M value
+                self._step_size.compute_M(self._objective.gradient(w))
+                log(f"{self._step_size._M=}")
+
                 # Choose step size $\eta_t$
                 eta_t = self._step_size(g_hat, p)
                 log(f"{eta_t=}")

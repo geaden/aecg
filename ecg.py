@@ -40,8 +40,8 @@ class ECG(Algorithm, MComputeMixin):
         eo: ErroneousOracle,
         lmo: LinearMinimizationOracle,
         epsilon: float,
-        M: float = 1.0,
-        R: float = 1.0,
+        M: float,
+        R: float,
         boundedness: Boundedness = Boundedness.UNBOUNDED,
         keep_history=False,
     ):
@@ -103,8 +103,8 @@ class ECG(Algorithm, MComputeMixin):
             w_next = w + eta_t * p
             log(f"{w_next=}")
 
+            self.compute_M(self._objective.gradient(w))
             L_t = max(self._compute_Lt(t, w, w_next, g_hat, p), np.longlong(0))
-
             self._Lt.append(L_t)
 
             self._track_history(w_next)
@@ -129,9 +129,8 @@ class ECG(Algorithm, MComputeMixin):
             $L_t$.
         """
         j = t + 2
-        M = self.compute_M(g_hat)
         inexact_part = (
-            np.dot(g_hat, p) + self._boundedness * self._epsilon * M * self._R
+            np.dot(g_hat, p) + self._boundedness * self._epsilon * self._M * self._R
         )
         numerator = j * (
             j * (self._objective(w_next) - self._objective(w)) - 2 * inexact_part
@@ -155,12 +154,15 @@ class ECG(Algorithm, MComputeMixin):
 
         self._delta = [dt]
         for t in range(self._max_iterations):
-            w, _ = self._history[t]
-            g_hat = self._eo(self._objective.gradient, w)
-            M = self.compute_M(g_hat)
+            self.compute_M(self._history[t][0])
             delta_t = (
                 t / (t + 2) * self._delta[t]
-                + 2 * (1 + self._boundedness) * self._epsilon * M * self._R / (t + 2)
+                + 2
+                * (1 + self._boundedness)
+                * self._epsilon
+                * self._M
+                * self._R
+                / (t + 2)
                 + self._Lt[t] * self._R**2 / (t + 2) ** 2
             )
 
