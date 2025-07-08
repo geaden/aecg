@@ -3,9 +3,13 @@
 This repository contains the code for the paper:
 
 > Adaptive Variants of Frank-Wolfe Method with Relative Inexact Gradient Information,
-> Gennady Denisov<sup>1</sup>, Fedor Sergeevich Stonyakin<sup>1,2</sup> and Mohammad Alkousa<sup>3</sup>>
-> <sup>1</sup> Moscow Institute of Physics and Technology, Russia,
+>
+> Gennady Denisov<sup>1</sup>, Fedor Sergeevich Stonyakin<sup>1,2</sup> and Mohammad Alkousa<sup>3</sup>
+>
+> <sup>1</sup> Moscow Institute of Physics and Technology, Russia
+>
 > <sup>2</sup> V.,I.,Vernadsky Crimean Federal University, Russia
+>
 > <sup>3</sup> Innopolis University, Russia
 
 [Paper](https://doi.org/10.1007/978-3-031-97077-1_1)
